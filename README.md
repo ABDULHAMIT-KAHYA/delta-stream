@@ -1,73 +1,114 @@
-DeltaStream
+# DeltaStream
 
-State-aware realtime synchronization for Rust.
+<p align="center">
+  <strong>State-aware realtime synchronization for Rust.</strong>
+</p>
 
-DeltaStream turns application state changes into snapshots and compact deltas, validates the state chain at the receiver, and safely requests recovery when an update cannot be applied.
+<p align="center">
+  Snapshots when necessary. Compact deltas when useful. Safe recovery when the state chain breaks.
+</p>
 
-It runs above realtime transports such as PubNub, WebSocket, MQTT, and NATS.
+<p align="center">
+  <a href="https://crates.io/crates/delta-stream">
+    <img src="https://img.shields.io/crates/v/delta-stream.svg" alt="crates.io">
+  </a>
+  <a href="https://docs.rs/delta-stream">
+    <img src="https://docs.rs/delta-stream/badge.svg" alt="docs.rs">
+  </a>
+  <a href="https://github.com/ABDULHAMIT-KAHYA/delta-stream/actions">
+    <img src="https://github.com/ABDULHAMIT-KAHYA/delta-stream/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License">
+  </a>
+</p>
 
+---
+
+DeltaStream converts application state updates into snapshots and compact deltas, validates the state chain at the receiver, and refuses unsafe updates when a required base state is missing.
+
+It is designed to sit above realtime transports such as PubNub, WebSocket, MQTT, and NATS.
+
+```text
 Application state
-       │
-       ▼
- snapshot / compact delta
-       │
-       ▼
- PubNub · WebSocket · MQTT · NATS
-       │
-       ▼
- validation · ordering · recovery
-       │
-       ▼
- synchronized remote state
+       |
+       v
+snapshot or compact delta
+       |
+       v
+PubNub / WebSocket / MQTT / NATS
+       |
+       v
+validation / ordering / recovery
+       |
+       v
+synchronized remote state
+```
 
-Latest release: 0.30.1Status: public preview / production-candidate. The protocol and API are usable and extensively tested, but the project does not yet claim long-term production deployment history, independent security auditing, or formal verification.
+> **Latest release:** `0.30.1`  
+> **Status:** Public preview / production-candidate
 
-Why DeltaStream?
+DeltaStream is usable and extensively tested, but it does not yet claim long-term production deployment history, independent security auditing, or formal protocol verification.
 
-Realtime transports move messages. They generally do not know whether one application-state update depends on another.
+## Why DeltaStream?
+
+Realtime transports move messages.
+
+They usually do not know whether one application-state update depends on another.
 
 A typical application repeatedly sends its complete state:
 
-state A ── full state ──►
-state B ── full state ──►
-state C ── full state ──►
+```text
+State A  -->  full state
+State B  -->  full state
+State C  -->  full state
+```
 
 DeltaStream establishes the state once, then sends the useful change when that representation is smaller:
 
-snapshot ───────────────►
-delta from snapshot ────►
-delta from previous ────►
+```text
+State A  -->  snapshot
+State B  -->  compact delta
+State C  -->  compact delta
+```
 
-The important difference is not only packet size. DeltaStream tracks the state chain and refuses unsafe updates.
+The important difference is not only packet size.
 
-seq 1  snapshot                 applied
-seq 2  delta based on seq 1     applied
-seq 3  delta based on seq 2     applied
-seq 4  delta based on seq 3     applied
-seq 5  lost
-seq 6  delta based on seq 5     rejected
-                                   │
-                                   ▼
-                            recovery required
-                                   │
-                                   ▼
-                            recovery snapshot
-                                   │
-                                   ▼
-                              sync restored
+DeltaStream tracks the state chain and refuses to apply an update when its required base state is unavailable.
 
-This prevents a receiver from silently constructing invalid state after packet loss, reordering, duplication, corruption, or base-state mismatch.
+```text
+Sequence 1  snapshot             applied
+Sequence 2  delta from 1         applied
+Sequence 3  delta from 2         applied
+Sequence 4  delta from 3         applied
+Sequence 5  lost
+Sequence 6  delta requiring 5    rejected
+                                      |
+                                      v
+                              recovery required
+                                      |
+                                      v
+                              recovery snapshot
+                                      |
+                                      v
+                                sync restored
+```
 
-Quick start
+This prevents the receiver from silently constructing invalid state after packet loss, reordering, duplication, corruption, or base-state mismatch.
 
-Add the crate:
+## Quick start
 
+Add DeltaStream and Serde:
+
+```toml
 [dependencies]
 delta-stream = "0.30.1"
 serde = { version = "1", features = ["derive"] }
+```
 
-Define a state model and synchronize it:
+Define a state model:
 
+```rust
 use delta_stream::{Apply, DeltaState, Publisher, Subscriber};
 use serde::{Deserialize, Serialize};
 
@@ -98,7 +139,7 @@ fn main() -> Result<(), delta_stream::DeltaError> {
 
     match subscriber.apply(publisher.update(&updated)?)? {
         Apply::Applied { sequence, state } => {
-            println!("seq={sequence} state={state:?}");
+            println!("sequence={sequence}, state={state:?}");
         }
 
         Apply::NeedSnapshot {
@@ -111,98 +152,103 @@ fn main() -> Result<(), delta_stream::DeltaError> {
         }
 
         Apply::Duplicate { sequence } => {
-            println!("duplicate seq={sequence}");
+            println!("duplicate sequence={sequence}");
         }
     }
 
     Ok(())
 }
+```
 
-The primary public API is intentionally small:
+## Small public API
 
+The primary API is intentionally compact:
+
+```text
 Publisher<T>
-
 Subscriber<T>
-
 Packet
-
 Apply<T>
-
 DeltaState
-
 DeltaError
+```
 
-Protocol internals and tuning types are available under delta_stream::advanced.
+Advanced protocol and tuning types are available under:
 
-Correctness and recovery
+```rust
+delta_stream::advanced
+```
 
-DeltaStream provides application-layer synchronization primitives for:
+## What DeltaStream provides
 
-sequence and base-state validation;
+DeltaStream includes application-layer synchronization support for:
 
-duplicate and stale-packet suppression;
+- snapshot and delta generation;
+- sequence validation;
+- base-state validation;
+- duplicate suppression;
+- stale-packet suppression;
+- bounded packet reordering;
+- replay from retained history;
+- authoritative recovery snapshots;
+- partial repair for large byte states;
+- backpressure decisions for lagging subscribers;
+- CRC32 payload integrity validation.
 
-bounded packet reordering;
+## Recovery without breaking healthy clients
 
-replay from retained history;
+A recovery snapshot is created at the publisher's current sequence without consuming another shared sequence number.
 
-authoritative recovery snapshots;
+That means recovering one subscriber does not create a new sequence gap for subscribers that are already healthy.
 
-partial repair of large byte states;
+```text
+Healthy client       seq 7 --> seq 8 --> seq 9
 
-backpressure decisions for lagging subscribers;
+Lagging client        seq 4 --> recovery at seq 7 --> seq 8 --> seq 9
+```
 
-payload integrity validation.
+## Transport-independent packets
 
-A recovery snapshot represents the publisher's current sequence without consuming another shared sequence number. Recovering one subscriber therefore does not create a new sequence gap for healthy subscribers.
+DeltaStream is transport-independent at its core.
 
-Transport independence
+Encode a packet before sending it:
 
-DeltaStream packets can be serialized and carried by any byte-capable transport:
-
+```rust
 let bytes = packet.to_bytes()?;
-let decoded = delta_stream::Packet::from_bytes(&bytes)?;
+```
 
-Optional adapters are available through Cargo features:
+Decode it after receiving it:
 
-Feature
+```rust
+let packet = delta_stream::Packet::from_bytes(&bytes)?;
+```
 
-Adapter
+Any byte-capable transport can carry the packet.
 
-pubnub-transport
+## Optional transport adapters
 
-PubNub
-
-websocket-transport
-
-WebSocket
-
-mqtt-transport
-
-MQTT
-
-nats-transport
-
-NATS
-
-all-transports
-
-All transport adapters
-
-full
-
-All transports, derive support, and compression
+| Feature | Adapter |
+|---|---|
+| `pubnub-transport` | PubNub |
+| `websocket-transport` | WebSocket |
+| `mqtt-transport` | MQTT |
+| `nats-transport` | NATS |
+| `all-transports` | All transport adapters |
+| `full` | All transports, derive support, and compression |
 
 Example:
 
+```toml
 [dependencies]
 delta-stream = {
     version = "0.30.1",
     features = ["pubnub-transport"]
 }
+```
 
-Custom publisher policy
+## Custom publisher policy
 
+```rust
 use delta_stream::{DeltaState, Publisher};
 use serde::{Deserialize, Serialize};
 
@@ -215,33 +261,32 @@ let publisher = Publisher::<State>::builder()
     .compression(true)
     .zstd_level(1)
     .build();
+```
 
-Adaptive byte-state synchronization
+## Adaptive byte-state synchronization
 
-For ordinary serializable Rust models, Publisher<T> chooses between complete snapshots and compact updates.
+For normal serializable Rust models, `Publisher<T>` chooses between a complete snapshot and a compact update.
 
-For large byte states, the advanced encoder evaluates a bounded set of representations and selects the smallest suitable candidate. Available strategies include:
+For large byte states, the advanced encoder evaluates a bounded set of candidate representations.
 
-sparse changes;
+Available strategies include:
 
-changed ranges;
+- sparse changes;
+- changed ranges;
+- XOR deltas;
+- splice operations;
+- chunk deltas;
+- compressed snapshots;
+- raw snapshots.
 
-XOR deltas;
-
-splice operations;
-
-chunk deltas;
-
-compressed snapshots;
-
-raw snapshots.
-
+```rust
 use delta_stream::advanced::{ByteStateDecoder, FastByteStateEncoder};
 
 let mut publisher = FastByteStateEncoder::new("game/state");
 let mut subscriber = ByteStateDecoder::new("game/state");
 
 let first = vec![0_u8; 4096];
+
 let mut second = first.clone();
 second[2000] = 7;
 
@@ -249,126 +294,118 @@ subscriber.apply(publisher.encode(&first)?)?;
 subscriber.apply(publisher.encode(&second)?)?;
 
 # Ok::<(), delta_stream::DeltaError>(())
+```
 
-Measured results
+## Measured results
 
-These are synthetic workload measurements, not universal performance claims.
+The following are synthetic workload measurements, not universal performance claims.
 
-Workload
+| Workload | Observed result |
+|---|---:|
+| 100 KiB state, 1% mutation, 100,000 updates | Approximately 98.30% fewer packet bytes than repeatedly sending full state |
+| 100 KiB state, 1% mutation | Approximately 306 microseconds per encode |
+| 1 MiB state, four changed 1 KiB chunks | 4 KiB repair payload |
+| Multi-client fault simulation | 2,000 of 2,000 clients converged |
+| Recovery storm simulation | 10,000 of 10,000 clients converged |
 
-Observed result
+Performance depends on:
 
-100 KiB state, 1% mutation, 100,000 updates
+- state shape;
+- mutation pattern;
+- compression settings;
+- hardware;
+- compiler version;
+- transport overhead.
 
-approximately 98.30% fewer packet bytes than repeatedly sending the complete state
+See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for methodology, commands, and caveats.
 
-100 KiB state, 1% mutation
-
-approximately 306 µs per encode at the Criterion midpoint
-
-1 MiB state, four changed 1 KiB chunks
-
-4 KiB repair payload
-
-2,000-client fault simulation
-
-2,000 clients converged
-
-10,000-client recovery storm
-
-10,000 clients converged
-
-Results depend on state shape, mutation pattern, compression settings, hardware, and transport overhead.
-
-See docs/BENCHMARKS.md for hardware, methodology, commands, and caveats.
-
-PubNub recovery demonstration
+## PubNub recovery demonstration
 
 DeltaStream was exercised over the PubNub adapter with one intentionally discarded delta:
 
-seq 1–4    applied
-seq 5      intentionally discarded
-seq 6      rejected because its required base was missing
-           recovery requested
-seq 7      recovery snapshot applied
-seq 8–20   normal synchronization continued
+```text
+Sequences 1-4    applied normally
+Sequence 5       intentionally discarded
+Sequence 6       rejected because its base was missing
+Recovery         requested
+Sequence 7       recovery snapshot applied
+Sequences 8-20   normal synchronization continued
+```
 
-This demonstrates application-layer recovery over a real transport. It is not a claim that PubNub itself loses messages.
+This demonstrates DeltaStream's application-layer recovery over a real transport.
 
-Quality gates
+It is not a claim that PubNub itself loses messages.
 
-The current release has been exercised with:
+## Quality gates
 
+The current release passes:
+
+```text
 cargo fmt --all -- --check
 cargo check --workspace --all-features
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-features
 cargo run --release -- --validate-v30
+```
 
-The full suite covers:
+The test suite covers:
 
-packet round-tripping and integrity checks;
+- packet encoding and decoding;
+- CRC validation;
+- exact state reconstruction;
+- gap detection;
+- snapshot recovery;
+- duplicate suppression;
+- stale-packet handling;
+- bounded reordering;
+- malformed packet rejection;
+- property-based delta testing;
+- partial repair;
+- backpressure behavior;
+- multi-client convergence;
+- public API behavior;
+- documentation examples.
 
-snapshot and delta reconstruction;
+## Suitable workloads
 
-duplicate and stale packet handling;
+DeltaStream is strongest when state changes frequently while only part of it changes per update.
 
-gap detection and recovery;
+Examples include:
 
-adaptive snapshot fallback;
+- multiplayer game state;
+- distributed simulations;
+- AI-agent telemetry;
+- IoT device state;
+- realtime dashboards;
+- collaborative applications;
+- presence and session state;
+- robotics;
+- digital twins.
 
-bounded reordering;
+## Scope
 
-property-based delta tests;
+DeltaStream is not a replacement for specialized audio or video codecs.
 
-malformed packet rejection;
+High-entropy or completely unrelated states may provide little delta advantage. In those cases, DeltaStream can fall back to a snapshot.
 
-partial repair;
+## Documentation
 
-backpressure behavior;
+- [Architecture](docs/ARCHITECTURE.md)
+- [Protocol and recovery](docs/PROTOCOL.md)
+- [Benchmarks](docs/BENCHMARKS.md)
+- [Security](docs/SECURITY.md)
+- [Release process](docs/RELEASE.md)
+- [Changelog](CHANGELOG.md)
 
-multi-client convergence;
+## Installation
 
-public API recovery behavior;
+```toml
+[dependencies]
+delta-stream = "0.30.1"
+```
 
-documentation examples.
+## License
 
-See docs/RELEASE.md for the release checklist.
+DeltaStream is licensed under the MIT License.
 
-Suitable workloads
-
-DeltaStream is strongest when state changes frequently while only part of the state changes on each update:
-
-multiplayer and simulation state;
-
-AI-agent progress and telemetry;
-
-IoT and device state;
-
-live dashboards;
-
-collaborative state;
-
-presence and session state;
-
-robotics and digital twins.
-
-It is not a replacement for specialized audio or video codecs. High-entropy or completely unrelated states may provide little delta advantage; in those cases, DeltaStream can fall back to a snapshot.
-
-Documentation
-
-Architecture
-
-Protocol and recovery
-
-Benchmarks
-
-Security
-
-Release process
-
-Changelog
-
-License
-
-MIT. See LICENSE.
+See [LICENSE](LICENSE).
