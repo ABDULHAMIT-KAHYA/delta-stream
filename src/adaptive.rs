@@ -1,6 +1,6 @@
 use crate::{error::DeltaError, packet::Packet};
 
-/// V20 can select a raw or compressed snapshot/delta representation.
+/// Selects between raw and compressed snapshot or delta representations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EncodeMode {
     Snapshot,
@@ -37,12 +37,13 @@ impl EncodeDecision {
     }
 }
 
-/// V20 adaptive codec policy.
+/// Adaptive codec selection policy.
 ///
-/// Four safe representations are considered per update:
-/// raw snapshot, raw delta, zstd snapshot, and zstd delta.
-/// A small byte penalty can be assigned to compressed candidates so callers can
-/// trade a little bandwidth for lower CPU/latency.
+/// Evaluates raw and compressed snapshot and delta candidates, then selects the
+/// representation with the lowest configured cost.
+///
+/// A small penalty may be applied to compressed candidates to trade bandwidth
+/// savings for lower CPU usage and latency.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AdaptivePolicy {
     pub min_delta_savings_bytes: usize,

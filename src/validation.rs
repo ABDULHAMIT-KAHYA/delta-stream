@@ -49,7 +49,7 @@ pub fn run_release_validation() -> Result<ValidationReport, DeltaError> {
         matches!(decoder.apply_packet(p2)?, ApplyResult::Duplicate { .. }),
     ));
 
-    // V20 protocol compatibility: v3 writers can still accept a v2 packet because
+    // Protocol compatibility: v3 writers can accept compatible v2 packets because
     // the v2/v3 header layout is intentionally unchanged.
     let legacy = encoder.recovery_snapshot(&next)?;
     let mut legacy_bytes = legacy.encode()?;

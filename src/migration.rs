@@ -8,7 +8,7 @@ pub type MigrationFn = fn(Value) -> Result<Value, DeltaError>;
 
 /// Explicit one-hop schema migrations for snapshot payloads.
 ///
-/// V20 never applies a delta across schema versions. A mismatched client must
+/// Deltas are never applied across schema versions. A mismatched client must
 /// receive a snapshot, which can then be migrated through an explicitly
 /// registered transformation.
 #[derive(Default)]

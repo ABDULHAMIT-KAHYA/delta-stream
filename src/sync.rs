@@ -59,7 +59,7 @@ impl Encoder {
         }
     }
 
-    /// V20 adaptive encoding: build safe snapshot/delta candidates and let the
+    /// Builds safe snapshot and delta candidates and lets the configured policy
     /// policy choose raw or zstd-compressed representation.
     pub fn encode(&mut self, state: &AgentState) -> Result<Packet, DeltaError> {
         self.sequence = self.sequence.saturating_add(1);

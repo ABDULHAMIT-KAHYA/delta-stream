@@ -58,7 +58,7 @@ fn deliver(
     Ok(())
 }
 
-/// Deterministic V20 fan-out simulation.
+/// Deterministic multi-client fan-out simulation.
 ///
 /// It exercises independent client loss, duplicates, reordering and short
 /// disconnects. Recovery snapshots do not advance the shared publisher

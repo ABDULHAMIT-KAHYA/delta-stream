@@ -73,7 +73,7 @@ fn deliver(
     Ok(())
 }
 
-/// Deterministic V25 hard simulation.
+/// Deterministic fault and recovery simulation.
 ///
 /// It includes drops, duplicates, bounded reordering, short disconnects,
 /// long disconnects, late joins, and one global outage/resync storm.
