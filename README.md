@@ -1,4 +1,4 @@
-#DeltaStream
+# DeltaStream
 
 <p align="center">
   <strong>Application-layer state synchronization for Rust.</strong>
