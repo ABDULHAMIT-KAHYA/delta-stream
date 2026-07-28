@@ -1,5 +1,16 @@
 # Changelog
+## [0.30.1] - 2026-07-28
 
+### Changed
+
+- Cleaned public benchmark and test filenames.
+- Improved deterministic public API recovery testing.
+- Added GitHub repository metadata.
+- Removed obsolete internal validation scripts.
+
+### Fixed
+
+- Fixed a public API recovery test that could incorrectly expect a delta when the adaptive encoder selected a snapshot.
 ## 0.30.0
 
 - Added a curated public API: `Publisher<T>`, `Subscriber<T>`, `Apply<T>`, and `prelude`.

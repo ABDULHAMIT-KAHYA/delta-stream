@@ -1,9 +1,11 @@
 [package]
 name = "delta-stream"
-version = "0.30.0"
+version = "0.30.1"
 edition = "2021"
 description = "State-aware delta synchronization and recovery for realtime Rust applications"
 documentation = "https://docs.rs/delta-stream"
+repository = "https://github.com/ABDULHAMIT-KAHYA/delta-stream"
+homepage = "https://github.com/ABDULHAMIT-KAHYA/delta-stream"
 license = "MIT"
 readme = "README.md"
 keywords = ["realtime", "delta", "pubnub", "sync", "compression"]
@@ -74,10 +76,12 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 dotenvy = "0.15"
 crc32fast = "1"
+zstd = "0.13.3"
+json-patch = "4.2.0"
 
 delta-stream-derive = {
     path = "delta-stream-derive",
-    version = "0.30.0",
+    version = "0.30.1",
     optional = true,
 }
 
@@ -134,9 +138,6 @@ async-nats = {
     version = "0.38",
     optional = true,
 }
-
-zstd = "0.13.3"
-json-patch = "4.2.0"
 
 [dev-dependencies]
 criterion = "0.5"
