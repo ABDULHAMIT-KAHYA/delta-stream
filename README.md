@@ -22,12 +22,12 @@
 DeltaStream turns serializable Rust state into validated **snapshot** or **delta** packets that can travel over any byte-capable transport.
 
 ```text
-State → Publisher → bytes → transport → bytes → Subscriber → synchronized state
+State â†’ Publisher â†’ bytes â†’ transport â†’ bytes â†’ Subscriber â†’ synchronized state
 ```
 
 It works above TCP, WebSocket, PubNub, MQTT, NATS, IPC, files, or any custom transport.
 
-> **Latest release:** `0.31.0`  
+> **Latest release:** `0.32.0`  
 > **Status:** Public preview
 
 ## Why DeltaStream?
@@ -155,7 +155,7 @@ let packet = publisher.recovery_snapshot(&current_state)?;
 subscriber.apply(packet)?;
 ```
 
-Recovery snapshots preserve the publisher’s current sequence, so repairing one subscriber does not disrupt healthy subscribers.
+Recovery snapshots preserve the publisherâ€™s current sequence, so repairing one subscriber does not disrupt healthy subscribers.
 
 ## Lower-Level Packet API
 
@@ -216,12 +216,45 @@ Schema compatibility is based on the `DeltaState` schema hash. Incompatible delt
 
 See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
 
+## Optional CRDT Support
+
+The `crdt` feature adds a separate multi-writer replicated-value layer. It does not change the authoritative `Publisher`/`Subscriber` synchronization API.
+
+```toml
+[dependencies]
+delta-stream = { version = "0.31.0", features = ["crdt"] }
+```
+
+Current CRDT types are `GCounter`, `PNCounter`, and `LwwRegister`. Their state-based merge operations tolerate duplicate and reordered delivery after every replica eventually receives the same states. The transport still handles delivery, authentication, encryption, and persistence.
+
+```rust
+use delta_stream::crdt::{Crdt, GCounter, ReplicaId};
+
+# fn main() -> Result<(), delta_stream::crdt::CrdtError> {
+let a = ReplicaId::new("a")?;
+let b = ReplicaId::new("b")?;
+let mut left = GCounter::new();
+let mut right = GCounter::new();
+
+left.increment(&a, 2)?;
+right.increment(&b, 3)?;
+
+left.merge(&right);
+right.merge(&left);
+
+assert_eq!(left.value()?, 5);
+# Ok(())
+# }
+```
+
+`LwwRegister` timestamps are supplied by the application; use monotonic logical timestamps, Lamport clocks, or another suitable ordering source. This feature does not claim arbitrary Rust struct CRDT support or collaborative-document semantics. See [docs/CRDT.md](docs/CRDT.md).
 ## Feature Flags
 
 | Feature | Purpose |
 |---|---|
 | `derive` | Re-export `#[derive(DeltaState)]`. Enabled by default. |
 | `zstd-compression` | Enable adaptive zstd candidates. Enabled by default. |
+| `crdt` | Enable optional state-based CRDT types. Disabled by default. |
 | `pubnub-transport` | Enable the PubNub adapter. |
 | `websocket-transport` | Enable the WebSocket adapter. |
 | `mqtt-transport` | Enable the MQTT adapter. |
@@ -294,6 +327,7 @@ Before `1.0`, minor releases may refine APIs and compatibility rules.
 - [Architecture](docs/ARCHITECTURE.md)
 - [Protocol and recovery](docs/PROTOCOL.md)
 - [Compatibility](docs/COMPATIBILITY.md)
+- [Optional CRDT support](docs/CRDT.md)
 - [Benchmarks](docs/BENCHMARKS.md)
 - [Security](docs/SECURITY.md)
 - [Release process](docs/RELEASE.md)

@@ -42,7 +42,8 @@
 //!     -> validated synchronized state
 //! ```
 //!
-//! # Transport model//!
+//! # Transport model
+//!
 //! DeltaStream produces and consumes [`Packet`] values. A transport is responsible for
 //! moving the serialized packet bytes between peers. Optional adapters are available for
 //! PubNub, WebSocket, MQTT, and NATS behind Cargo features.
@@ -50,6 +51,8 @@
 extern crate self as delta_stream;
 
 pub mod api;
+#[cfg(feature = "crdt")]
+pub mod crdt;
 pub mod error;
 pub mod packet;
 pub mod partial_repair;

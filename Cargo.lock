@@ -482,7 +482,7 @@ checksum = "a4ae5f15dda3c708c0ade84bfee31ccab44a3da4f88015ed22f63732abe300c8"
 
 [[package]]
 name = "delta-stream"
-version = "0.31.0"
+version = "0.32.0"
 dependencies = [
  "async-nats",
  "async-trait",

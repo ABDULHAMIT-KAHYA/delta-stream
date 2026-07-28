@@ -1,5 +1,5 @@
 # Changelog
-## [0.31.0] - Unreleased
+## [0.32.0] - Unreleased
 
 ### Added
 

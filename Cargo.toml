@@ -1,6 +1,6 @@
 [package]
 name = "delta-stream"
-version = "0.31.0"
+version = "0.32.0"
 edition = "2021"
 description = "State-aware delta synchronization and recovery for realtime Rust applications"
 documentation = "https://docs.rs/delta-stream"
@@ -27,6 +27,7 @@ members = ["delta-stream-derive"]
 default = ["derive", "zstd-compression"]
 
 derive = ["dep:delta-stream-derive"]
+crdt = []
 
 async-runtime = [
     "dep:tokio",
@@ -158,3 +159,16 @@ harness = false
 name = "public_api"
 harness = false
 
+
+[[example]]
+name = "crdt_counter"
+required-features = ["crdt"]
+
+[[example]]
+name = "crdt_register"
+required-features = ["crdt"]
+
+[[bench]]
+name = "crdt"
+harness = false
+required-features = ["crdt"]
