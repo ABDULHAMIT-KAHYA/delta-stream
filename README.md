@@ -1,4 +1,4 @@
-﻿# DeltaStream
+# DeltaStream
 
 <p align="center">
   <strong>Reliable application-state synchronization for Rust.</strong>
@@ -22,7 +22,7 @@
 DeltaStream turns serializable Rust state into validated **snapshot** or **delta** packets that can travel over any byte-capable transport.
 
 ```text
-State Ã¢â€ â€™ Publisher Ã¢â€ â€™ bytes Ã¢â€ â€™ transport Ã¢â€ â€™ bytes Ã¢â€ â€™ Subscriber Ã¢â€ â€™ synchronized state
+State -> Publisher -> bytes -> transport -> bytes -> Subscriber -> synchronized state
 ```
 
 It works above TCP, WebSocket, PubNub, MQTT, NATS, IPC, files, or any custom transport.
@@ -155,7 +155,7 @@ let packet = publisher.recovery_snapshot(&current_state)?;
 subscriber.apply(packet)?;
 ```
 
-Recovery snapshots preserve the publisherÃ¢â‚¬â„¢s current sequence, so repairing one subscriber does not disrupt healthy subscribers.
+Recovery snapshots preserve the publisher's current sequence, so repairing one subscriber does not disrupt healthy subscribers.
 
 ## Lower-Level Packet API
 
