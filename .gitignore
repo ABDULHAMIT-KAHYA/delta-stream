@@ -49,3 +49,6 @@ temp/
 # Local credentials
 credentials
 credentials.toml
+
+/fuzz/target/
+/fuzz/artifacts/
