@@ -1,0 +1,50 @@
+# Rust build output
+/target/
+
+# Cargo local configuration
+.cargo/
+
+# Environment files / secrets
+.env
+.env.*
+!.env.example
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+
+# Coverage / profiling
+coverage/
+tarpaulin-report.html
+*.profraw
+*.profdata
+
+# Generated benchmark output
+criterion/
+
+# Local test artifacts
+artifacts/
+tmp/
+temp/
+
+# Package archives
+*.crate
+*.zip
+
+# Local credentials
+credentials
+credentials.toml

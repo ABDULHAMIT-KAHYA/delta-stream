@@ -1,0 +1,155 @@
+[package]
+name = "delta-stream"
+version = "0.30.0"
+edition = "2021"
+description = "State-aware delta synchronization and recovery for realtime Rust applications"
+documentation = "https://docs.rs/delta-stream"
+license = "MIT"
+readme = "README.md"
+keywords = ["realtime", "delta", "pubnub", "sync", "compression"]
+categories = ["network-programming", "encoding", "compression"]
+exclude = [
+    "docs/history/**",
+    "docs/development/**",
+    "scripts/**",
+    ".env.example",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[workspace]
+members = ["delta-stream-derive"]
+
+[features]
+default = ["derive", "zstd-compression"]
+
+derive = ["dep:delta-stream-derive"]
+
+async-runtime = [
+    "dep:tokio",
+    "dep:futures",
+    "dep:async-trait",
+    "dep:tokio-stream",
+]
+
+pubnub-transport = [
+    "async-runtime",
+    "dep:pubnub",
+]
+
+websocket-transport = [
+    "async-runtime",
+    "dep:tokio-tungstenite",
+    "dep:url",
+]
+
+mqtt-transport = [
+    "async-runtime",
+    "dep:rumqttc",
+]
+
+nats-transport = [
+    "async-runtime",
+    "dep:async-nats",
+]
+
+zstd-compression = []
+
+all-transports = [
+    "pubnub-transport",
+    "websocket-transport",
+    "mqtt-transport",
+    "nats-transport",
+]
+
+full = [
+    "all-transports",
+    "zstd-compression",
+    "derive",
+]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dotenvy = "0.15"
+crc32fast = "1"
+
+delta-stream-derive = {
+    path = "delta-stream-derive",
+    version = "0.30.0",
+    optional = true,
+}
+
+async-trait = {
+    version = "0.1",
+    optional = true,
+}
+
+futures = {
+    version = "0.3",
+    optional = true,
+}
+
+tokio = {
+    version = "1",
+    features = [
+        "rt-multi-thread",
+        "macros",
+        "time",
+        "sync",
+        "net",
+    ],
+    optional = true,
+}
+
+tokio-stream = {
+    version = "0.1",
+    features = ["sync"],
+    optional = true,
+}
+
+pubnub = {
+    version = "0.8.0",
+    optional = true,
+    features = ["tokio"],
+}
+
+tokio-tungstenite = {
+    version = "0.24",
+    optional = true,
+}
+
+url = {
+    version = "2",
+    optional = true,
+}
+
+rumqttc = {
+    version = "0.24",
+    optional = true,
+}
+
+async-nats = {
+    version = "0.38",
+    optional = true,
+}
+
+zstd = "0.13.3"
+json-patch = "4.2.0"
+
+[dev-dependencies]
+criterion = "0.5"
+proptest = "1"
+
+[[bench]]
+name = "codec"
+harness = false
+
+[[bench]]
+name = "strategy_comparison"
+harness = false
+
+[[bench]]
+name = "fast_encoder"
+harness = false

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DeltaStream Demo</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui;background:#08111f;color:#e8eef8}*{box-sizing:border-box}body{margin:0;padding:28px}.wrap{max-width:1050px;margin:auto}.top{display:flex;justify-content:space-between;gap:20px;align-items:center}.badge{padding:7px 11px;border:1px solid #31506f;border-radius:999px;color:#8ed7ff}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}.card{background:#0d1b2d;border:1px solid #203650;border-radius:16px;padding:20px}.big{font-size:34px;font-weight:700;margin:8px 0}.muted{color:#8ea4bd}.good{color:#77e6a3}.warn{color:#ffcc75}.bar{height:10px;background:#172941;border-radius:99px;overflow:hidden}.bar>i{display:block;height:100%;background:#69bfff;width:42%}.row{display:flex;justify-content:space-between;gap:16px;margin:12px 0}.actions{display:flex;gap:10px;margin-top:18px}button{border:1px solid #31506f;background:#132640;color:#e8eef8;border-radius:10px;padding:10px 14px;cursor:pointer}button:hover{background:#19304f}input{width:180px}.log{font-family:ui-monospace,monospace;min-height:90px;white-space:pre-wrap}.full{grid-column:1/-1}@media(max-width:720px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.top{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body><div class="wrap">
+<div class="top"><div><h1>DeltaStream V30</h1><div class="muted">State-aware binary deltas, integrity checks, and automatic resync</div></div><div class="badge">LOCAL DEMO ●</div></div>
+<div class="grid">
+<section class="card"><div class="muted">FULL JSON</div><div class="big" id="fullTotal">0 B</div><div class="row"><span>Last payload</span><b id="fullLast">0 B</b></div></section>
+<section class="card"><div class="muted">DELTASTREAM</div><div class="big good" id="deltaTotal">0 B</div><div class="row"><span>Last packet</span><b id="deltaLast">0 B</b></div><div class="row"><span>Reduction</span><b class="good" id="reduction">0%</b></div></section>
+<section class="card full"><div class="row"><span>Progress</span><b id="progress">42%</b></div><div class="bar"><i id="progressBar"></i></div><div class="row"><span>Sequence</span><b id="seq">0</b></div><div class="row"><span>Tokens</span><b id="tokens">18,492</b></div><div class="row"><span>CPU</span><b id="cpu">34.2%</b></div><div class="actions"><button id="drop">DROP NEXT PACKET</button><button id="reset">RESET</button><label class="muted">Interval <input id="speed" type="range" min="50" max="1000" value="200"></label></div></section>
+<section class="card full"><div class="muted">EVENT LOG</div><div class="log" id="log">Ready.</div></section>
+</div></div>
+<script>
+let timer; const $=id=>document.getElementById(id); const fmt=n=>n<1024?n+' B':(n/1024).toFixed(1)+' KB';
+function log(s){$('log').textContent=(new Date().toLocaleTimeString())+'  '+s+'\n'+$('log').textContent.slice(0,600)}
+async function tick(){try{const r=await fetch('/api/tick',{cache:'no-store'});const d=await r.json();$('fullTotal').textContent=fmt(d.metrics.full_json_bytes);$('deltaTotal').textContent=fmt(d.metrics.wire_bytes);$('fullLast').textContent=fmt(d.full_bytes);$('deltaLast').textContent=fmt(d.delta_bytes);const red=d.metrics.full_json_bytes?100*(1-d.metrics.wire_bytes/d.metrics.full_json_bytes):0;$('reduction').textContent=red.toFixed(1)+'%';$('progress').textContent=d.state.progress+'%';$('progressBar').style.width=d.state.progress+'%';$('seq').textContent=d.sequence;$('tokens').textContent=d.state.tokens.toLocaleString();$('cpu').textContent=d.state.cpu_percent.toFixed(1)+'%';if(d.dropped)log('Packet #'+d.sequence+' intentionally dropped.');if(d.desync_detected)log('DESYNC DETECTED on next delta: base sequence missing.');if(d.resynced)log('Fresh snapshot applied — SYNC RESTORED.')}catch(e){log('server error: '+e)}}
+function schedule(){clearInterval(timer);timer=setInterval(tick,Number($('speed').value))} $('speed').addEventListener('input',schedule);$('drop').addEventListener('click',async()=>{await fetch('/api/drop',{method:'POST'});log('Next packet marked for drop.')});$('reset').addEventListener('click',async()=>{await fetch('/api/reset',{method:'POST'});log('Demo reset.');await tick()});schedule();tick();
+</script></body></html>
