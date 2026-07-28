@@ -8,7 +8,7 @@
 //! # Quick start
 //!
 //! ```
-//! use delta_stream::{Apply, DeltaState, Publisher, Subscriber};
+//! use delta_stream::{DeltaState, Publisher, Subscriber};
 //! use serde::{Deserialize, Serialize};
 //!
 //! #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, DeltaState)]
@@ -21,23 +21,28 @@
 //! let mut publisher = Publisher::<GameState>::new();
 //! let mut subscriber = Subscriber::<GameState>::new();
 //!
-//! let first = publisher.update(&GameState { x: 10, hp: 100 })?;
-//! let second = publisher.update(&GameState { x: 11, hp: 98 })?;
+//! let bytes = publisher.encode(&GameState { x: 10, hp: 100 })?;
+//! subscriber.receive(&bytes)?;
 //!
-//! subscriber.apply(first)?;
-//! let result = subscriber.apply(second)?;
-//!
-//! match result {
-//!     Apply::Applied { state, .. } => assert_eq!(state.hp, 98),
-//!     Apply::NeedSnapshot { .. } => unreachable!("no packet was lost"),
-//!     Apply::Duplicate { .. } => unreachable!("packet was not duplicated"),
-//! }
+//! assert_eq!(subscriber.state().map(|state| state.hp), Some(100));
 //! # Ok(())
 //! # }
 //! ```
 //!
-//! # Transport model
+//! # Synchronization flow
 //!
+//! ```text
+//! Application state
+//!     -> Publisher
+//!     -> snapshot or delta packet
+//!     -> serialized bytes
+//!     -> any byte-capable transport
+//!     -> received bytes
+//!     -> Subscriber
+//!     -> validated synchronized state
+//! ```
+//!
+//! # Transport model//!
 //! DeltaStream produces and consumes [`Packet`] values. A transport is responsible for
 //! moving the serialized packet bytes between peers. Optional adapters are available for
 //! PubNub, WebSocket, MQTT, and NATS behind Cargo features.
@@ -117,7 +122,9 @@ pub mod ws_broker;
 
 pub use api::{Publisher, PublisherBuilder, StatePublisher, StateSubscriber, Subscriber};
 pub use error::DeltaError;
-pub use packet::{Packet, PacketKind, MAX_LOGICAL_PAYLOAD, MAX_WIRE_PAYLOAD, WIRE_VERSION};
+pub use packet::{
+    DecodeConfig, Packet, PacketKind, MAX_LOGICAL_PAYLOAD, MAX_WIRE_PAYLOAD, WIRE_VERSION,
+};
 pub use partial_repair::{ChunkManifest, ChunkPatch, PartialRepair};
 pub use runtime::{backpressure_decision, BackpressureDecision, RuntimeLimits, RuntimeMetrics};
 pub use schema::DeltaState;

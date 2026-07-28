@@ -1,6 +1,6 @@
 [package]
 name = "delta-stream"
-version = "0.30.1"
+version = "0.31.0"
 edition = "2021"
 description = "State-aware delta synchronization and recovery for realtime Rust applications"
 documentation = "https://docs.rs/delta-stream"
@@ -81,7 +81,7 @@ json-patch = "4.2.0"
 
 delta-stream-derive = {
     path = "delta-stream-derive",
-    version = "0.30.1",
+    version = "0.31.0",
     optional = true,
 }
 
@@ -154,3 +154,7 @@ harness = false
 [[bench]]
 name = "fast_encoder"
 harness = false
+[[bench]]
+name = "public_api"
+harness = false
+

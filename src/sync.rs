@@ -6,7 +6,7 @@ use crate::{
         decode_agent_delta, decode_agent_state, encode_agent_delta, encode_agent_state, AgentDelta,
     },
     error::DeltaError,
-    packet::{Packet, PacketKind},
+    packet::{DecodeConfig, Packet, PacketKind},
     replay::ReplayWindow,
     schema::{
         decode_generic_delta, decode_generic_snapshot, encode_generic_delta,
@@ -162,7 +162,7 @@ impl Decoder {
 
         let result = match packet.kind {
             PacketKind::Snapshot => {
-                let payload = packet.logical_payload()?;
+                let payload = packet.logical_payload_with_config(&DecodeConfig::default())?;
                 let state = decode_agent_state(&payload)?;
                 if state_hash(&state)? != packet.base_hash {
                     return Err(DeltaError::InvalidState("snapshot hash mismatch"));
@@ -191,7 +191,7 @@ impl Decoder {
                         required_sequence: packet.base_sequence,
                     });
                 }
-                let payload = packet.logical_payload()?;
+                let payload = packet.logical_payload_with_config(&DecodeConfig::default())?;
                 let delta = decode_agent_delta(&payload)?;
                 let next = delta.apply(current)?;
                 self.sequence = Some(packet.sequence);
@@ -306,6 +306,7 @@ pub struct GenericDecoder<T: DeltaState> {
     sequence: Option<u64>,
     state: Option<T>,
     replay: ReplayWindow,
+    decode_config: DecodeConfig,
     _marker: PhantomData<T>,
 }
 
@@ -315,11 +316,17 @@ impl<T: DeltaState> Default for GenericDecoder<T> {
             sequence: None,
             state: None,
             replay: ReplayWindow::default(),
+            decode_config: DecodeConfig::default(),
             _marker: PhantomData,
         }
     }
 }
 
+/// Result of applying a packet to a subscriber.
+///
+/// `Applied` contains the committed state after a snapshot or delta. `Duplicate` means
+/// the packet was already seen or is stale. `NeedSnapshot` means the subscriber could
+/// not safely apply a delta because its required base sequence or base hash is missing.
 #[derive(Debug, Clone, PartialEq)]
 pub enum GenericApplyResult<T> {
     Applied {
@@ -336,6 +343,13 @@ pub enum GenericApplyResult<T> {
 }
 
 impl<T: DeltaState> GenericDecoder<T> {
+    pub fn with_decode_config(decode_config: DecodeConfig) -> Self {
+        Self {
+            decode_config,
+            ..Self::default()
+        }
+    }
+
     pub fn apply_packet(&mut self, packet: Packet) -> Result<GenericApplyResult<T>, DeltaError> {
         if packet.schema_hash != T::schema_hash() {
             return Err(DeltaError::SchemaMismatch {
@@ -356,7 +370,7 @@ impl<T: DeltaState> GenericDecoder<T> {
 
         let result = match packet.kind {
             PacketKind::Snapshot => {
-                let payload = packet.logical_payload()?;
+                let payload = packet.logical_payload_with_config(&self.decode_config)?;
                 if fnv1a64(&payload) != packet.base_hash {
                     return Err(DeltaError::InvalidState("snapshot hash mismatch"));
                 }
@@ -386,7 +400,7 @@ impl<T: DeltaState> GenericDecoder<T> {
                         required_sequence: packet.base_sequence,
                     });
                 }
-                let payload = packet.logical_payload()?;
+                let payload = packet.logical_payload_with_config(&self.decode_config)?;
                 let delta = decode_generic_delta(&payload)?;
                 let next = delta.apply(current)?;
                 self.sequence = Some(packet.sequence);
@@ -425,7 +439,7 @@ impl<T: DeltaState> GenericDecoder<T> {
                 sequence: packet.sequence,
             });
         }
-        let payload = packet.logical_payload()?;
+        let payload = packet.logical_payload_with_config(&self.decode_config)?;
         if fnv1a64(&payload) != packet.base_hash {
             return Err(DeltaError::InvalidState("snapshot hash mismatch"));
         }

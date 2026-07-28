@@ -3,6 +3,12 @@ use serde_json::{Map, Value};
 
 use crate::{error::DeltaError, sync::fnv1a64};
 
+/// Describes an application state type that DeltaStream can synchronize.
+///
+/// State types must be cloneable and Serde-serializable because snapshots are encoded as
+/// JSON and generic deltas are computed from JSON object fields. Implement this trait
+/// manually to choose a stable schema name, or enable the default `derive` feature and use
+/// `#[derive(delta_stream::DeltaState)]` on a named struct.
 pub trait DeltaState: Clone + Serialize + DeserializeOwned + Send + Sync + 'static {
     const SCHEMA_NAME: &'static str;
     fn schema_hash() -> u64 {

@@ -1,4 +1,30 @@
 # Changelog
+## [0.31.0] - Unreleased
+
+### Added
+
+- `Publisher::encode` for high-level packet creation and serialization.
+- `Subscriber::receive` for high-level packet decoding and application.
+- `DecodeConfig` and packet decoding size-limit APIs.
+- High-level synchronization and recovery examples.
+- Malformed-input, oversized-packet, decompression-limit, recovery, and external-style API tests.
+- Fuzz targets for packet parsing and subscriber receiving.
+- Public API benchmarks.
+- Compatibility documentation.
+
+### Changed
+
+- README quickstart now uses the high-level API.
+- Expanded rustdoc for primary public synchronization types.
+- CI now includes rustdoc warnings, examples, benchmark compilation, and package validation.
+- Clarified transport-independent usage and decode safety limits.
+
+### Compatibility
+
+- Existing lower-level packet APIs remain available.
+- No intentional public API breaking changes.
+- The writer still emits wire version 3, and the reader still accepts wire versions 2 through 3.
+- 0.30.1 v2/v3 packets remain readable when schema, compression flags, checksum, and payload contents are compatible with the subscriber state type.
 ## [0.30.1] - 2026-07-28
 
 ### Changed
@@ -50,3 +76,4 @@
 - Added stable recovery sequence behavior.
 - Added v2/v3 envelope compatibility and stricter protocol validation.
 - Added schema migration support and multi-client deterministic fault testing.
+

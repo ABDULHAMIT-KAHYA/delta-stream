@@ -1,0 +1,30 @@
+[package]
+name = "delta-stream-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+delta-stream = { path = ".." }
+serde = { version = "1", features = ["derive"] }
+
+[[bin]]
+name = "packet_from_bytes"
+path = "fuzz_targets/packet_from_bytes.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "subscriber_receive"
+path = "fuzz_targets/subscriber_receive.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+

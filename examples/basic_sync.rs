@@ -1,48 +1,36 @@
-use delta_stream::{Apply, DeltaState, Publisher, Subscriber};
+use delta_stream::{DeltaState, Publisher, Subscriber};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, DeltaState)]
-struct GameState {
+struct PlayerState {
+    name: String,
     x: i32,
     y: i32,
-    hp: u16,
+    health: u16,
 }
 
 fn main() -> Result<(), delta_stream::DeltaError> {
-    let mut publisher = Publisher::<GameState>::new();
-    let mut subscriber = Subscriber::<GameState>::new();
+    let mut publisher = Publisher::<PlayerState>::new();
+    let mut subscriber = Subscriber::<PlayerState>::new();
 
-    let states = [
-        GameState {
-            x: 10,
-            y: 20,
-            hp: 100,
-        },
-        GameState {
-            x: 11,
-            y: 20,
-            hp: 98,
-        },
-        GameState {
-            x: 12,
-            y: 21,
-            hp: 96,
-        },
-    ];
+    let mut player = PlayerState {
+        name: "Abdulhamit".into(),
+        x: 10,
+        y: 20,
+        health: 100,
+    };
 
-    for state in states {
-        let packet = publisher.update(&state)?;
-        let wire = packet.to_bytes()?;
-        let received = delta_stream::Packet::from_bytes(&wire)?;
+    let bytes = publisher.encode(&player)?;
+    subscriber.receive(&bytes)?;
+    println!("initial state applied: {:?}", subscriber.state());
 
-        match subscriber.apply(received)? {
-            Apply::Applied { sequence, state } => {
-                println!("applied seq={sequence}: {state:?}");
-            }
-            Apply::NeedSnapshot { .. } => println!("recovery required"),
-            Apply::Duplicate { sequence } => println!("duplicate seq={sequence}"),
-        }
-    }
+    player.x = 11;
+    player.health = 98;
 
+    let bytes = publisher.encode(&player)?;
+    subscriber.receive(&bytes)?;
+    println!("updated state applied: {:?}", subscriber.state());
+
+    assert_eq!(subscriber.state(), Some(&player));
     Ok(())
 }

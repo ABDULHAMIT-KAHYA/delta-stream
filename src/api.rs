@@ -4,15 +4,21 @@ use crate::{
     adaptive::{AdaptivePolicy, EncodeDecision},
     error::DeltaError,
     migration::MigrationRegistry,
-    packet::Packet,
+    packet::{DecodeConfig, Packet},
     schema::DeltaState,
     sync::{GenericApplyResult, GenericDecoder, GenericEncoder},
 };
 
-/// Publishes application-state updates as DeltaStream packets.
+/// Publishes application-state updates as DeltaStream packets or bytes.
 ///
-/// The first update is encoded as a snapshot. Later updates may be encoded as
-/// deltas or compressed packets according to the active [`AdaptivePolicy`].
+/// A publisher owns the sending side of one state stream. It observes each new
+/// application state and emits either a snapshot or a delta packet according to
+/// the configured adaptive policy. The usual flow is:
+///
+/// `application state -> Publisher -> snapshot or delta packet -> serialized bytes`.
+///
+/// Use [`Publisher::encode`] for the simple byte-oriented API, or [`Publisher::update`]
+/// when an integration needs direct access to packet metadata before serialization.
 ///
 /// # Example
 ///
@@ -27,8 +33,8 @@ use crate::{
 ///
 /// # fn main() -> Result<(), delta_stream::DeltaError> {
 /// let mut publisher = Publisher::<State>::new();
-/// let packet = publisher.update(&State { progress: 10 })?;
-/// assert_eq!(packet.sequence, 1);
+/// let bytes = publisher.encode(&State { progress: 10 })?;
+/// assert!(!bytes.is_empty());
 /// # Ok(())
 /// # }
 /// ```
@@ -62,7 +68,23 @@ impl<T: DeltaState> StatePublisher<T> {
         }
     }
 
-    /// Encodes a new authoritative state.
+    /// Encodes a new authoritative state into transport-independent bytes.
+    ///
+    /// This is the high-level publishing path. It creates either a snapshot or delta
+    /// with the same logic as [`Publisher::update`], then serializes that packet with
+    /// [`Packet::to_bytes`]. The returned bytes can be carried by any byte-capable
+    /// transport, including TCP, WebSocket, PubNub, MQTT, NATS, UDP with reliability
+    /// handled externally, files, IPC, or an in-memory channel.
+    pub fn encode(&mut self, state: &T) -> Result<Vec<u8>, DeltaError> {
+        self.update(state)?.to_bytes()
+    }
+
+    /// Encodes a new authoritative state as a packet.
+    ///
+    /// The first update is a snapshot. Later updates may be deltas or snapshots, and
+    /// raw or zstd-compressed, depending on the active [`AdaptivePolicy`]. This method
+    /// preserves the stream sequence, schema hash, base hash, and compression behavior
+    /// used by the lower-level packet API.
     pub fn update(&mut self, state: &T) -> Result<Packet, DeltaError> {
         self.encoder.encode(state)
     }
@@ -74,8 +96,8 @@ impl<T: DeltaState> StatePublisher<T> {
 
     /// Builds a recovery snapshot at the current stream sequence.
     ///
-    /// This does not advance the publisher sequence, so recovering one client
-    /// does not create a sequence gap for healthy clients.
+    /// This does not advance the publisher sequence, so recovering one client does not
+    /// create a sequence gap for healthy clients.
     pub fn recovery_snapshot(&self, state: &T) -> Result<Packet, DeltaError> {
         self.encoder.recovery_snapshot(state)
     }
@@ -132,14 +154,24 @@ impl<T: DeltaState> PublisherBuilder<T> {
 }
 
 /// Receives and applies DeltaStream packets for one application-state stream.
+///
+/// A subscriber owns the receiving side of a stream. The usual flow is:
+///
+/// `serialized bytes -> Subscriber -> validated synchronized state`.
+///
+/// It validates schema identity, sequence/base-state relationships, duplicate and stale
+/// packets, packet integrity, and decompression limits before committing a new state.
 pub struct StateSubscriber<T: DeltaState> {
     decoder: GenericDecoder<T>,
+    decode_config: DecodeConfig,
 }
 
 impl<T: DeltaState> Default for StateSubscriber<T> {
     fn default() -> Self {
+        let decode_config = DecodeConfig::default();
         Self {
-            decoder: GenericDecoder::default(),
+            decoder: GenericDecoder::with_decode_config(decode_config),
+            decode_config,
         }
     }
 }
@@ -150,7 +182,31 @@ impl<T: DeltaState> StateSubscriber<T> {
         Self::default()
     }
 
+    /// Creates an empty subscriber with explicit packet decoding limits.
+    pub fn with_decode_config(decode_config: DecodeConfig) -> Self {
+        Self {
+            decoder: GenericDecoder::with_decode_config(decode_config),
+            decode_config,
+        }
+    }
+
+    /// Receives transport bytes, decodes a packet, and applies it.
+    ///
+    /// This is the high-level receiving path. It parses bytes with
+    /// [`Packet::from_bytes_with_config`], validates packet integrity, decompresses within
+    /// configured limits when needed, and then applies the packet with the same state-chain
+    /// logic as [`Subscriber::apply`]. It may apply a new state, report a duplicate, or
+    /// request a snapshot when a gap or incompatible base is detected.
+    pub fn receive(&mut self, bytes: &[u8]) -> Result<GenericApplyResult<T>, DeltaError> {
+        let packet = Packet::from_bytes_with_config(bytes, &self.decode_config)?;
+        self.apply(packet)
+    }
+
     /// Applies a snapshot or delta packet.
+    ///
+    /// Snapshots establish or restore state. Deltas are committed only when the local
+    /// sequence and base-state hash match the packet metadata. Rejected packets do not
+    /// mutate the subscriber state.
     pub fn apply(&mut self, packet: Packet) -> Result<GenericApplyResult<T>, DeltaError> {
         self.decoder.apply_packet(packet)
     }
@@ -177,7 +233,7 @@ impl<T: DeltaState> StateSubscriber<T> {
 
     /// Clears local state and sequence tracking.
     pub fn reset(&mut self) {
-        self.decoder.reset();
+        self.decoder = GenericDecoder::with_decode_config(self.decode_config);
     }
 }
 

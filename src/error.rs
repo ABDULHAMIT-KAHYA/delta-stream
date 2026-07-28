@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 
+/// Errors returned by DeltaStream encoding, decoding, transport, and state application.
 #[derive(Debug)]
 pub enum DeltaError {
     InvalidState(&'static str),
@@ -9,6 +10,14 @@ pub enum DeltaError {
     Compression(String),
     Transport(String),
     ResourceLimit(&'static str),
+    PacketTooLarge {
+        limit: usize,
+        actual: usize,
+    },
+    DecompressedPayloadTooLarge {
+        limit: usize,
+        actual: Option<usize>,
+    },
     ChecksumMismatch {
         expected: u32,
         actual: u32,
@@ -42,6 +51,23 @@ impl Display for DeltaError {
             Self::Compression(msg) => write!(f, "compression error: {msg}"),
             Self::Transport(msg) => write!(f, "transport error: {msg}"),
             Self::ResourceLimit(msg) => write!(f, "resource limit: {msg}"),
+            Self::PacketTooLarge { limit, actual } => {
+                write!(
+                    f,
+                    "packet too large: {actual} bytes exceeds limit {limit} bytes"
+                )
+            }
+            Self::DecompressedPayloadTooLarge {
+                limit,
+                actual: Some(actual),
+            } => write!(
+                f,
+                "decompressed payload too large: {actual} bytes exceeds limit {limit} bytes"
+            ),
+            Self::DecompressedPayloadTooLarge {
+                limit,
+                actual: None,
+            } => write!(f, "decompressed payload exceeds limit {limit} bytes"),
             Self::ChecksumMismatch { expected, actual } => {
                 write!(
                     f,
